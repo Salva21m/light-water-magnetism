@@ -253,8 +253,19 @@
     };
   }
 
-  const fmt = d => d ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-  const fmtDate = d => d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  let currentTz = null;
+  const timeOpts = () => {
+    const o = { hour: '2-digit', minute: '2-digit' };
+    if (currentTz) o.timeZone = currentTz;
+    return o;
+  };
+  const dateOpts = () => {
+    const o = { weekday: 'long', month: 'long', day: 'numeric' };
+    if (currentTz) o.timeZone = currentTz;
+    return o;
+  };
+  const fmt = d => d ? d.toLocaleTimeString([], timeOpts()) : '—';
+  const fmtDate = d => d.toLocaleDateString([], dateOpts());
 
   function section(title, t) {
     const rows = [
@@ -303,8 +314,9 @@
     document.getElementById('rows').innerHTML =
       section(fmtDate(today), todayTimes) +
       section(fmtDate(tomorrow), getTimes(tomorrow, lat, lon));
+    const tzLabel = currentTz ? ` · times in ${currentTz}` : '';
     document.getElementById('foot').textContent =
-      'UVA threshold 10° · UVB threshold 30° (vitamin D synthesis)';
+      `UVA threshold 10° · UVB threshold 30°${tzLabel}`;
     positionSun(todayTimes);
   }
 
@@ -325,11 +337,33 @@
     locEl.title = 'Click to change location';
   }
 
-  function use(lat, lon, persist = true) {
-    if (persist) localStorage.setItem(KEY, JSON.stringify({ lat, lon }));
+  async function fetchTz(lat, lon) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const r = await fetch(`https://timeapi.io/api/timezone/coordinate?latitude=${lat}&longitude=${lon}`, { signal: ctl.signal });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return j.timeZone || null;
+    } catch (_) { return null; }
+    finally { clearTimeout(timer); }
+  }
+
+  function use(lat, lon, persist = true, tz) {
     editor.classList.remove('show');
     setLocLabel(lat, lon);
+    if (tz !== undefined) currentTz = tz;
     render(lat, lon);
+    if (persist) localStorage.setItem(KEY, JSON.stringify({ lat, lon, tz: currentTz }));
+    // Refresh TZ if we don't already have one for these coords.
+    if (tz === undefined) {
+      fetchTz(lat, lon).then(resolvedTz => {
+        if (!resolvedTz || resolvedTz === currentTz) return;
+        currentTz = resolvedTz;
+        if (persist) localStorage.setItem(KEY, JSON.stringify({ lat, lon, tz: currentTz }));
+        render(lat, lon);
+      });
+    }
   }
 
   function noteError(msg) {
@@ -470,9 +504,13 @@
   let restored = false;
   try {
     const cached = localStorage.getItem(KEY);
-    if (cached) { const { lat, lon } = JSON.parse(cached); use(lat, lon, false); restored = true; }
+    if (cached) {
+      const { lat, lon, tz } = JSON.parse(cached);
+      use(lat, lon, false, tz || undefined);
+      restored = true;
+    }
   } catch (_) {}
-  if (!restored) use(31.91, 131.42, false);
+  if (!restored) use(31.91, 131.42, false, 'Asia/Tokyo');
 })();
 </script>
 </body>
