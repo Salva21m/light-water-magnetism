@@ -406,7 +406,7 @@
     if (suggestCtl) suggestCtl.abort();
     suggestCtl = new AbortController();
     try {
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&osm_tag=place:city&osm_tag=place:town&osm_tag=place:village`;
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=en&osm_tag=place:city&osm_tag=place:town&osm_tag=place:village&osm_tag=place:province`;
       const r = await fetch(url, { signal: suggestCtl.signal });
       if (!r.ok) return;
       const j = await r.json();
