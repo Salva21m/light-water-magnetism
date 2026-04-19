@@ -125,7 +125,7 @@
   <h1 id="loc" title="Click to edit location">Set your location</h1>
   <p class="hint">Click the coordinates to change location.</p>
   <form id="editor" class="editor show">
-    <input id="coords" type="text" inputmode="decimal" placeholder="lat, lon (e.g. 38.72, -9.14)" autocomplete="off">
+    <input id="coords" type="text" inputmode="decimal" placeholder="e.g. 38.72° N, 9.14° W" autocomplete="off">
     <button type="submit">Set</button>
     <button type="button" id="useloc" title="Use device location">📍</button>
   </form>
@@ -316,13 +316,39 @@
     if (editor.classList.contains('show')) coordsInput.focus();
   });
 
+  function parseCoords(input) {
+    const s = input.replace(/[°º'"]/g, ' ');
+    const re = /(-?\d+(?:\.\d+)?)\s*([NSEWnsew])?/g;
+    const tokens = [];
+    let m;
+    while ((m = re.exec(s)) !== null) {
+      tokens.push({ value: parseFloat(m[1]), dir: (m[2] || '').toUpperCase() });
+    }
+    if (tokens.length < 2) return null;
+
+    const apply = t => {
+      if (t.dir === 'S' || t.dir === 'W') return -Math.abs(t.value);
+      if (t.dir === 'N' || t.dir === 'E') return Math.abs(t.value);
+      return t.value;
+    };
+    const isLat = t => t.dir === 'N' || t.dir === 'S';
+    const isLon = t => t.dir === 'E' || t.dir === 'W';
+
+    const [a, b] = tokens;
+    let lat, lon;
+    if (isLon(a) && isLat(b)) { lat = apply(b); lon = apply(a); }
+    else                      { lat = apply(a); lon = apply(b); }
+
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  }
+
   editor.addEventListener('submit', e => {
     e.preventDefault();
-    const m = coordsInput.value.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
-    if (!m) { coordsInput.focus(); return; }
-    const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
-    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) { coordsInput.focus(); return; }
-    use(lat, lon);
+    const parsed = parseCoords(coordsInput.value);
+    if (!parsed) { coordsInput.focus(); coordsInput.select(); return; }
+    use(parsed.lat, parsed.lon);
   });
 
   useLocBtn.addEventListener('click', () => {
