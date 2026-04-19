@@ -71,8 +71,25 @@
   @media (prefers-color-scheme: dark) {
     .err { color: #ff7a6b; }
   }
-  #loc { cursor: pointer; }
+  #loc { cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; }
+  #loc::after {
+    content: '';
+    width: 0.5em; height: 0.5em;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    opacity: 0.5;
+    transition: transform 0.15s ease;
+  }
   #loc:hover { color: var(--fg); }
+  #loc:hover::after { transform: rotate(225deg); opacity: 0.9; }
+  .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: -1rem 0 1.5rem;
+    display: none;
+  }
+  .hint.show { display: block; }
   .editor { display: none; gap: 0.5rem; margin: 0 0 1.5rem; }
   .editor.show { display: flex; }
   .editor input {
@@ -108,6 +125,7 @@
 <main>
   <p class="title"><b>Light</b>, Water, and Magnetism</p>
   <h1 id="loc" title="Click to edit location">Set your location</h1>
+  <p id="hint" class="hint">Showing default location — click above to set your own.</p>
   <form id="editor" class="editor show">
     <input id="coords" type="text" inputmode="decimal" placeholder="lat, lon (e.g. 38.72, -9.14)" autocomplete="off">
     <button type="submit">Set</button>
@@ -284,10 +302,11 @@
     locEl.title = 'Click to change location';
   }
 
-  function use(lat, lon, persist = true) {
+  function use(lat, lon, persist = true, isDefault = false) {
     if (persist) localStorage.setItem(KEY, JSON.stringify({ lat, lon }));
     editor.classList.remove('show');
     setLocLabel(lat, lon);
+    document.getElementById('hint').classList.toggle('show', isDefault);
     render(lat, lon);
   }
 
@@ -328,7 +347,7 @@
     const cached = localStorage.getItem(KEY);
     if (cached) { const { lat, lon } = JSON.parse(cached); use(lat, lon, false); restored = true; }
   } catch (_) {}
-  if (!restored) use(31.91, 131.42, false);
+  if (!restored) use(31.91, 131.42, false, true);
 })();
 </script>
 </body>
